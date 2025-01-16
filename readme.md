@@ -165,7 +165,7 @@ curl -X PUT http://localhost:5000/api/v1/auth/update_wallet -H "Authorization: B
 }'
 ```
 
-**Visualiser les transactions du portefeuille :**
+**Visualiser l'évolution de la quantité en eth du portefeuille en fonction des transactions:**
 
 ```bash
 curl -X GET http://localhost:5000/api/v1/user/get_data/:address -H "Authorization: Bearer <access-token>"
