@@ -90,9 +90,9 @@ backend/
 ├── controllers/   # Contrôleurs pour gérer les routes
 ├── models/        # Modèles MongoDB
 ├── routes/        # Définition des routes
-├── middleware/   # Middlewares personnalisés
+├── middleware/    # Middlewares personnalisés
 ├── server.js      # Point d'entrée du serveur
-├── package.json    # Dépendances et scripts
+├── package.json   # Dépendances et scripts
 └── .env           # Variables d'environnement
 ```
 
@@ -106,8 +106,8 @@ frontend/
 │   ├── hooks/      # Hooks de l'application
 │   ├── pages/      # Pages de l'application
 │   ├── services/   # Services API (axios)
-│   ├── App.tsx      # Composant principal
-│   ├── index.tsx    # Point d'entrée de l'application
+│   ├── App.tsx     # Composant principal
+│   ├── index.tsx   # Point d'entrée de l'application
 │   └── styles/     # Fichiers CSS ou SCSS
 ├── package.json    # Dépendances et scripts
 └── .env            # Variables d'environnement frontend (si nécessaire)
@@ -163,6 +163,12 @@ curl -X GET http://localhost:5000/api/v1/auth/get_wallet -H "Authorization: Bear
 curl -X PUT http://localhost:5000/api/v1/auth/update_wallet -H "Authorization: Bearer <access-token>" -H "Content-Type: application/json" -d '{
   "wallet": "votre-wallet"
 }'
+```
+
+**Visualiser les transactions du portefeuille :**
+
+```bash
+curl -X GET http://localhost:5000/api/v1/user/get_data/:address -H "Authorization: Bearer <access-token>"
 ```
 
 ---
