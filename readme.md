@@ -149,6 +149,22 @@ curl -X POST http://localhost:5000/api/v1/auth/refresh -H "Content-Type: applica
 curl -X POST http://localhost:5000/api/v1/auth/logout -H "Content-Type: application/json" -d '{}'
 ```
 
+**Mot de passe oublié :**
+
+```bash
+curl -X POST http://localhost:5000/api/v1/auth/forgot-password -H "Content-Type: application/json" -d '{
+  "email": "utilisateur@example.com"
+}'
+```
+
+**Réinitialiser le mot de passe :**
+
+```bash
+curl -X POST http://localhost:5000/api/v1/auth/reset-password/votre-token -H "Content-Type: application/json" -d '{
+  "password": "nouveau-mot-de-passe"
+}'
+```
+
 ### Portefeuille
 
 **Récupérer le portefeuille :**

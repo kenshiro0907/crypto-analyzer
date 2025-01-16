@@ -1,36 +1,41 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from "react";
 
 interface AuthContextType {
-    user: boolean;
-    login: () => void;
-    logout: () => void;
-};
+  user: boolean;
+  login: () => void;
+  logout: () => void;
+}
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-    const [user, setUser] = useState<boolean>(false);
+  const [user, setUser] = useState<boolean>(false);
 
-    useEffect(() => {
+  useEffect(() => {
+    const user = localStorage.getItem("token");
+    if (user) {
+      setUser(true);
+    }
+  }, []);
 
-        const user = localStorage.getItem("token");
-        if (user) {
-            setUser(true);
-        }
-    }, []);
+  const login = () => setUser(true);
+  const logout = () => setUser(false);
 
-    const login = () => setUser(true);
-    const logout = () => setUser(false);
-
-    return (
-        <AuthContext.Provider value={{ user, login, logout }}>
-            {children}
-        </AuthContext.Provider>
-    );
+  return (
+    <AuthContext.Provider value={{ user, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (!context) throw new Error("useAuth must be used within AuthProvider");
-    return context;
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
+  return context;
 };

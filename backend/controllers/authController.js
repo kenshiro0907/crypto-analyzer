@@ -1,8 +1,10 @@
 const User = require("../models/User");
+const sendEmail = require("../utils/email");
 const RefreshToken = require("../models/RefreshToken");
 const { accessTokenSecret, refreshTokenSecret } = require("../constante/const");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 
 const walletAdress = process.env.WALLET_ADDRESS;
 
@@ -142,6 +144,69 @@ exports.logout = async (req, res) => {
     res.json({ message: "Déconnecté avec succès" });
   } catch (error) {
     console.error("Erreur lors de la déconnexion :", error);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur introuvable" });
+    }
+
+    const resetToken = crypto.randomBytes(20).toString("hex");
+    user.resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+    user.resetPasswordExpires = Date.now() + 3600000;
+
+    await user.save();
+
+    const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
+    const message = `Vous avez demandé à réinitialiser votre mot de passe. Cliquez sur ce lien pour procéder : ${resetUrl}`;
+
+    sendEmail(user.email, "Réinitialisation de mot de passe", message);
+
+    res.status(200).json({ message: "Email de réinitialisation envoyé" });
+  } catch (error) {
+    console.error("Erreur lors de la récupération du mot de passe :", error);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  const { token } = req.params;
+  const { password } = req.body;
+
+  try {
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Token invalide ou expiré" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    user.password = hashedPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+
+    await user.save();
+
+    res.status(200).json({ message: "Mot de passe réinitialisé avec succès" });
+  } catch (error) {
+    console.error(
+      "Erreur lors de la réinitialisation du mot de passe :",
+      error
+    );
     res.status(500).json({ message: "Erreur serveur" });
   }
 };
