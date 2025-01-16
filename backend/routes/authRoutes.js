@@ -8,6 +8,7 @@ const {
   logout,
   forgotPassword,
   resetPassword,
+  verifyEmail,
 } = require("../controllers/authController");
 const { authenticate } = require("../middleware/authenticate");
 const router = express.Router();
@@ -20,5 +21,6 @@ router.post("/refresh", refresh);
 router.delete("/logout", logout);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password/:token", resetPassword);
+router.post("/verify-email/:token", verifyEmail);
 
 module.exports = router;
