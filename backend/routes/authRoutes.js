@@ -11,10 +11,11 @@ const {
   verifyEmail,
 } = require("../controllers/authController");
 const { authenticate } = require("../middleware/authenticate");
+const limit = require("../middleware/limit");
 const router = express.Router();
 
 router.post("/register", register);
-router.post("/login", login);
+router.post("/login", limit, login);
 router.get("/profile/get_wallet", getWallet);
 router.put("/profile/update_wallet", authenticate, updateWallet);
 router.post("/refresh", refresh);

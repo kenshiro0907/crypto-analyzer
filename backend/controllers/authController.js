@@ -29,9 +29,32 @@ exports.login = async (req, res) => {
 
   try {
     const user = await User.findOne({ email });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ error: "Credentials invalides" });
+    if (!user) {
+      return res.status(401).json({ message: "Identifiants invalides" });
     }
+
+    if (user.lockUntil && user.lockUntil > Date.now()) {
+      return res
+        .status(403)
+        .json({ message: "Compte verrouillé. Réessayez plus tard." });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      user.loginAttempts += 1;
+
+      if (user.loginAttempts >= 3) {
+        user.lockUntil = Date.now() + 15 * 60 * 1000;
+      }
+
+      await user.save();
+
+      return res.status(401).json({ message: "Identifiants invalides" });
+    }
+
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
+    await user.save();
 
     const accessToken = jwt.sign(
       { id: user._id, email: user.email },
