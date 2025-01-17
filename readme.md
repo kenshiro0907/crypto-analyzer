@@ -165,6 +165,12 @@ curl -X POST http://localhost:5000/api/v1/auth/reset-password/votre-token -H "Co
 }'
 ```
 
+**Vérifier l'addresse email :**
+
+```bash
+curl -X POST http://localhost:5000/api/v1/auth/verify-email/votre-token
+```
+
 ### Portefeuille
 
 **Récupérer le portefeuille :**
