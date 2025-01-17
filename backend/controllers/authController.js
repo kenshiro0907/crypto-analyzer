@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const sendEmail = require("../utils/email");
+const validatePassword = require("../utils/validatePassword");
 const RefreshToken = require("../models/RefreshToken");
 const { accessTokenSecret, refreshTokenSecret } = require("../constante/const");
 const jwt = require("jsonwebtoken");
@@ -11,13 +12,31 @@ const walletAdress = process.env.WALLET_ADDRESS;
 exports.register = async (req, res) => {
   const { email, password } = req.body;
 
+  // TODO: check if password is at least 6 characters long + uppercqse + lowercase + special character
+  if (!validatePassword(password)) {
+    return res.status(400).json({
+      error:
+        "Le mot de passe doit contenir au moins 6 caractères, une majuscule, une minuscule et un caractère spécial.",
+    });
+  }
+
   try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const user = new User({
       email,
-      password,
+      password: hashedPassword,
       wallet: walletAdress,
     });
     await user.save();
+
+    // TODO: send email verification
+
+    const verificationUrl = `http://localhost:5000/api/v1/auth/verify-email/${email}`;
+    const message = `Cliquez sur ce lien pour vérifier votre email : ${verificationUrl}`;
+
+    sendEmail(user.email, "Vérification de l'addresse email", message);
+
     res.status(201).json({ message: "Utilisateur enregistré avec succès" });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -30,7 +49,8 @@ exports.login = async (req, res) => {
   try {
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ message: "Identifiants invalides" });
+      console.log("Utilisateur introuvable");
+      return res.status(401).json({ message: "Utilisateur introuvable" });
     }
 
     if (user.lockUntil && user.lockUntil > Date.now()) {
@@ -49,6 +69,7 @@ exports.login = async (req, res) => {
 
       await user.save();
 
+      console.log("Identifiants invalides");
       return res.status(401).json({ message: "Identifiants invalides" });
     }
 
@@ -67,15 +88,26 @@ exports.login = async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+
     const token = new RefreshToken({
-      token: refreshToken,
+      token: hashedRefreshToken, // stores hashed refresh token instead
+      userId: user._id,
       expiredAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
     await token.save();
 
-    res.status(200).json({ accessToken, refreshToken });
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // Secure en production
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+    }); // httponly, secure, samesite
+
+    res.status(200).json({ accessToken }); // remove refreshtoken
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Erreur lors de la connexion :", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -134,37 +166,109 @@ exports.updateWallet = async (req, res) => {
 };
 
 exports.refresh = async (req, res) => {
-  const { token } = req.body;
+  const refreshToken = req.cookies.refreshToken; // = req.cookies.refreshToken
 
   try {
-    if (!token) return res.status(401).json({ message: "Token manquant" });
+    if (!refreshToken)
+      return res.status(401).json({ message: "Token manquant" });
 
-    const existingToken = await RefreshToken.findOne({ token });
+    const payload = jwt.verify(refreshToken, refreshTokenSecret);
+
+    const existingToken = await RefreshToken.findOne({ userId: payload.id });
     if (!existingToken || existingToken.expiredAt < new Date()) {
       return res.status(403).json({ message: "Token invalide ou expiré" });
     }
 
-    const payload = jwt.verify(token, refreshTokenSecret);
+    const isTokenValid = await bcrypt.compare(
+      refreshToken,
+      existingToken.token
+    );
+    if (!isTokenValid) {
+      return res.status(403).json({ message: "Token invalide" });
+    }
+
+    // delete old refresh token + create new one and store in db (attention hash)
+    // return refresh token in cookies
+
     const accessToken = jwt.sign(
       { id: payload.id, email: payload.email },
       accessTokenSecret,
       { expiresIn: "15m" }
     );
 
-    res.json({ accessToken });
+    const newRefreshToken = jwt.sign(
+      { id: payload.id, email: payload.email },
+      refreshTokenSecret,
+      { expiresIn: "7d" }
+    );
+
+    const hashedRefreshToken = await bcrypt.hash(newRefreshToken, 10);
+
+    await RefreshToken.deleteOne({ _id: existingToken._id });
+
+    const newToken = new RefreshToken({
+      token: hashedRefreshToken,
+      userId: payload.id,
+      expiredAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 jours
+    });
+    await newToken.save();
+
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // Secure en production
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+    });
+
+    res.status(200).json({ accessToken });
   } catch (error) {
     console.error("Erreur lors du rafraîchissement du token :", error);
-    res.status(403).json({ message: "Token invalide" });
+
+    if (error.name === "JsonWebTokenError") {
+      return res.status(403).json({ message: "Token invalide" });
+    }
+
+    if (error.name === "TokenExpiredError") {
+      return res.status(403).json({ message: "Token expiré" });
+    }
+
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
 exports.logout = async (req, res) => {
-  const { token } = req.body;
+  console.log("Cookies reçus :", req.cookies);
+  const refreshToken = req.cookies.refreshToken; // = req.cookies.refreshTojen
 
   try {
-    await RefreshToken.deleteOne({ token });
+    if (!refreshToken) {
+      return res.status(400).json({ message: "Token manquant" });
+    }
 
-    res.json({ message: "Déconnecté avec succès" });
+    const tokens = await RefreshToken.find({});
+
+    let existingToken = null;
+    for (const token of tokens) {
+      const isMatch = await bcrypt.compare(refreshToken, token.token);
+      if (isMatch) {
+        existingToken = token;
+        break;
+      }
+    }
+
+    if (!existingToken) {
+      return res.status(404).json({ message: "Token introuvable" });
+    }
+
+    await RefreshToken.deleteOne({ _id: existingToken._id });
+
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // Secure en production
+      sameSite: "strict",
+    });
+
+    res.status(200).json({ message: "Déconnecté avec succès" });
   } catch (error) {
     console.error("Erreur lors de la déconnexion :", error);
     res.status(500).json({ message: "Erreur serveur" });
@@ -224,6 +328,9 @@ exports.resetPassword = async (req, res) => {
 
     await user.save();
 
+    // TODO : delete all refresh tokens from the user
+    await RefreshToken.deleteMany({ userId: user._id });
+
     res.status(200).json({ message: "Mot de passe réinitialisé avec succès" });
   } catch (error) {
     console.error(
@@ -235,27 +342,20 @@ exports.resetPassword = async (req, res) => {
 };
 
 exports.verifyEmail = async (req, res) => {
-  const { token } = req.params;
+  const { email } = req.params;
 
   try {
-    const user = await User.findOne({
-      emailVerificationToken: token,
-      emailVerificationExpires: { $gt: Date.now() },
-    });
-
+    const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({ message: "Token invalide ou expiré" });
+      return res.status(404).json({ message: "Utilisateur introuvable" });
     }
 
     user.isEmailVerified = true;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationExpires = undefined;
-
     await user.save();
 
-    res.status(200).json({ message: "Email validé avec succès" });
+    res.status(200).json({ message: "Email vérifié avec succès" });
   } catch (error) {
-    console.error("Erreur lors de la validation de l'email :", error);
+    console.error("Erreur lors de la vérification de l'email :", error);
     res.status(500).json({ message: "Erreur serveur" });
   }
 };

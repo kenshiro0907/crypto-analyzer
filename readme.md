@@ -56,6 +56,8 @@ ETHERSCAN_API_KEY=votre-etherscan-api-key
 CRYPTOCOMPARE_API_URL=https://min-api.cryptocompare.com/data/pricehistorical
 CRYPTOCOMPARE_API_KEY=votre-cryptocompare-api-key
 WALLET_ADDRESS=votre-adresse-wallet
+ACCESS_TOKEN_SECRET=votre-access-token-secret
+REFRESH_TOKEN_SECRET=votre-refresh-token-secret
 NODE_ENV=development
 ```
 
@@ -169,7 +171,7 @@ curl -X POST http://localhost:5000/api/v1/auth/reset-password/votre-token -H "Co
 **Vérifier l'addresse email :**
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/auth/verify-email/votre-token
+curl -X GET http://localhost:5000/api/v1/auth/verify-email/utilisateur@example.com
 ```
 
 ### Portefeuille
