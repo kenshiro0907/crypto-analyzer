@@ -1,4 +1,4 @@
-# Nom du Projet
+# Crypto Analyzer
 
 Ce projet est une application web full-stack qui permet aux utilisateurs de gérer leur portefeuille numérique. Le backend est construit avec Node.js et Express, tandis que le frontend utilise React. L'application inclut des fonctionnalités d'authentification, de gestion de portefeuille et de rafraîchissement de tokens.
 
