@@ -91,6 +91,7 @@ backend/
 ├── models/        # Modèles MongoDB
 ├── routes/        # Définition des routes
 ├── middleware/    # Middlewares personnalisés
+├── utils/         # Utilitaires (par exemple, fonctions d'envoi de mail)
 ├── server.js      # Point d'entrée du serveur
 ├── package.json   # Dépendances et scripts
 └── .env           # Variables d'environnement
